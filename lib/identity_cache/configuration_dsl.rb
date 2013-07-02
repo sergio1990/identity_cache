@@ -65,7 +65,7 @@ module IdentityCache
         else
           self.instance_eval(ruby = <<-CODE, __FILE__, __LINE__)
             def fetch_by_#{field_list}(#{arg_list})
-              identity_cache_multiple_value_dynamic_fetcher(#{fields.inspect}, [#{arg_list}])
+              identity_cache_multiple_value_dynamic_fetcher(#{fields.inspect}, [#{arg_list}], #{options[:order] || {}})
             end
           CODE
         end
@@ -194,8 +194,8 @@ module IdentityCache
         record
       end
 
-      def identity_cache_multiple_value_dynamic_fetcher(fields, values) # :nodoc
-        sql_on_miss = "SELECT #{connection.quote_column_name('id')} FROM #{quoted_table_name} WHERE #{identity_cache_sql_conditions(fields, values)}"
+      def identity_cache_multiple_value_dynamic_fetcher(fields, values, ordering = {}) # :nodoc
+        sql_on_miss = "SELECT #{connection.quote_column_name('id')} FROM #{quoted_table_name} WHERE #{identity_cache_sql_conditions(fields, values)} #{identity_cache_sql_order(ordering)}"
         cache_key = rails_cache_index_key_for_fields_and_values(fields, values)
         ids = IdentityCache.fetch(cache_key) { connection.select_values(sql_on_miss) }
 
@@ -298,6 +298,11 @@ module IdentityCache
 
       def quoted_table_name
         @quoted_table_name ||= connection.quote_table_name(table_name)
+      end
+
+      def identity_cache_sql_order(ordering)
+        return "" if ordering.empty?
+        "ORDER BY #{ordering.first[0].to_s} #{ordering.first[1].to_s.upcase}"
       end
 
     end
